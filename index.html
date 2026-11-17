@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f0e7">
+  <title>拾隙 · 碎片时间工具</title>
+  <style>
+    :root { --paper:#f7f5ef; --ink:#171a18; --muted:#7a7d79; --line:#dcdcd5; --accent:#315e4c; --soft:#e8eee9; }
+    * { box-sizing:border-box; }
+    html, body { margin:0; min-height:100%; background:var(--paper); color:var(--ink); }
+    body { font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC",sans-serif; }
+    button,input,select { font:inherit; color:inherit; }
+    button { cursor:pointer; }
+    .app { width:min(100%,430px); min-height:100dvh; margin:auto; padding:max(20px,env(safe-area-inset-top)) 20px calc(32px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; }
+    header { display:flex; justify-content:space-between; align-items:center; }
+    .time-button,.menu-button { border:0; background:transparent; }
+    .time-button { padding:9px 12px; margin-left:-12px; font-size:14px; font-weight:700; }
+    .time-button span { color:var(--accent); }
+    .menu-button { width:42px; height:42px; margin-right:-10px; font-size:22px; letter-spacing:2px; }
+    .single-card { flex:1; display:flex; flex-direction:column; justify-content:center; padding:42px 2px 54px; }
+    .meta { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; color:var(--muted); font-size:12px; }
+    .kind { color:var(--accent); font-weight:750; }
+    .task-title { margin:0; font-family:"Songti SC","STSong",serif; font-size:clamp(34px,10vw,46px); font-weight:700; line-height:1.28; letter-spacing:-.02em; }
+    .task-note { margin:18px 0 0; color:var(--muted); font-size:15px; line-height:1.75; }
+    .first-step { margin:34px 0 0; padding-top:20px; border-top:1px solid var(--line); font-size:15px; line-height:1.75; }
+    .first-step span { display:block; margin-bottom:7px; color:var(--muted); font-size:12px; }
+    .primary { width:100%; min-height:58px; border:0; border-radius:16px; color:#fff; background:var(--ink); font-weight:750; }
+    .primary.active { background:var(--accent); }
+    .skip { min-height:52px; border:0; background:transparent; color:var(--muted); }
+    .quiet { min-height:34px; color:var(--muted); text-align:center; font-size:12px; }
+    .quiet strong { color:var(--ink); }
+    @keyframes replace { from { opacity:0; transform:translateY(8px); } }
+    .single-card.changed { animation:replace .22s ease; }
+    dialog { width:min(calc(100% - 28px),410px); max-height:84dvh; padding:0; border:0; border-radius:22px; background:#fff; box-shadow:0 24px 80px rgba(0,0,0,.2); }
+    dialog::backdrop { background:rgba(20,22,20,.4); backdrop-filter:blur(3px); }
+    .modal { padding:24px; }
+    .modal h2 { margin:0 0 7px; font-family:"Songti SC",serif; font-size:26px; }
+    .modal>p { margin:0 0 20px; color:var(--muted); font-size:13px; line-height:1.6; }
+    .time-options { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .time-options button,.menu-list button,.modal-actions button { min-height:50px; border:1px solid var(--line); border-radius:14px; background:#fff; }
+    .time-options button.active { color:#fff; background:var(--accent); border-color:var(--accent); }
+    .menu-list { display:grid; gap:10px; }
+    .menu-list button { display:flex; justify-content:space-between; align-items:center; padding:0 16px; text-align:left; }
+    .menu-list small { color:var(--muted); }
+    .field { margin-top:14px; }
+    .field label { display:block; margin-bottom:7px; font-size:13px; font-weight:700; }
+    .field input,.field select { width:100%; height:48px; padding:0 13px; border:1px solid var(--line); border-radius:12px; background:#fff; outline:none; }
+    .modal-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px; }
+    .modal-actions .save { color:#fff; background:var(--accent); border-color:var(--accent); }
+    .label-row { display:flex; justify-content:space-between; margin:20px 0 10px; }
+    .label { font-size:14px; font-weight:750; }
+    .hint { color:var(--muted); font-size:12px; }
+    .task-list { display:grid; gap:8px; }
+    .task-item { padding:13px 14px; border:1px solid var(--line); border-radius:12px; }
+    .task-item b { display:block; font-size:14px; }
+    .task-item small { color:var(--muted); }
+    .footer-note { margin:16px 0 0; color:var(--muted); text-align:center; font-size:12px; }
+    .toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(8px); padding:11px 16px; border-radius:999px; color:#fff; background:var(--ink); opacity:0; pointer-events:none; transition:.2s; font-size:13px; z-index:10; }
+    .toast.show { opacity:1; transform:translateX(-50%); }
+    @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <button class="time-button" id="openTime">还有 <span id="currentTime">5</span> 分钟⌄</button>
+      <button class="menu-button" id="openMenu" aria-label="打开菜单">···</button>
+    </header>
+
+    <section class="single-card" id="card" aria-live="polite">
+      <div class="meta"><span class="kind" id="taskKind"></span><span id="taskTime"></span></div>
+      <h1 class="task-title" id="taskTitle"></h1>
+      <p class="task-note" id="taskNote"></p>
+      <p class="first-step"><span>只做第一步</span><b id="taskStep"></b></p>
+    </section>
+
+    <button class="primary" id="accept">就做这个</button>
+    <button class="skip" id="another">不想做，换一个</button>
+    <div class="quiet">今天完成 <strong id="doneCount">0</strong> 次</div>
+  </main>
+
+  <dialog id="timeDialog">
+    <div class="modal">
+      <h2>这段空隙有多长？</h2>
+      <p>选最接近的一档。</p>
+      <div class="time-options" id="timeChoices">
+        <button data-time="2">2 分钟</button><button class="active" data-time="5">5 分钟</button>
+        <button data-time="10">10 分钟</button><button data-time="15">15 分钟</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="menuDialog">
+    <div class="modal">
+      <h2>拾隙</h2>
+      <p>记录与设置都在这里。</p>
+      <div class="menu-list">
+        <button id="menuTasks"><span>行动池</span><small>查看和添加</small></button>
+        <button id="menuToday"><span>今日记录</span><small id="menuTodayCount">0 次</small></button>
+        <button id="exportJson"><span>导出 JSON</span><small>保存在本地</small></button>
+      </div>
+      <div class="modal-actions"><button data-close style="grid-column:1/-1">关闭</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="taskDialog">
+    <div class="modal">
+      <h2>行动池</h2>
+      <p>只收录随时被打断也没有损失的小动作。新增内容会保存在这台设备。</p>
+      <form id="taskForm">
+        <div class="field"><label for="newTitle">动作</label><input id="newTitle" maxlength="36" placeholder="例如：记下一条实习事实" required></div>
+        <div class="field"><label for="newStep">第一步</label><input id="newStep" maxlength="50" placeholder="例如：打开备忘录，写今天做了什么" required></div>
+        <div class="field"><label for="newTime">需要时间</label><select id="newTime"><option value="2">2 分钟</option><option value="5" selected>5 分钟</option><option value="10">10 分钟</option><option value="15">15 分钟</option></select></div>
+        <div class="field"><label for="newEnergy">需要精力</label><select id="newEnergy"><option value="low">很低</option><option value="mid" selected>一般</option><option value="high">较高</option></select></div>
+        <div class="modal-actions"><button type="button" data-close>取消</button><button class="save" type="submit">加入行动池</button></div>
+      </form>
+      <div class="task-list" id="taskList"></div>
+    </div>
+  </dialog>
+
+  <dialog id="todayDialog">
+    <div class="modal">
+      <h2>今天</h2>
+      <p>今天的行动都在这里。</p>
+      <div class="task-list" id="historyList"></div>
+      <div class="modal-actions"><button data-close style="grid-column:1/-1">关闭</button></div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const defaults = [
+      { id: "rest-breathe", title: "借两分钟给窗外", step: "找一处远景，看一会儿", note: "等光影移动一点，再回到眼前。", kind: "片刻", time: 2, energy: "low" },
+      { id: "rest-water", title: "接杯水，慢慢走回来", step: "起身，把手机留在原处", note: "沿途看看今天的天色。", kind: "片刻", time: 5, energy: "low" },
+      { id: "work-fact", title: "记下一条今天的工作事实", step: "写一句“我今天做了什么”", note: "这条素材以后可以交给 AI 整理进简历。", kind: "求职铺路", time: 5, energy: "mid" },
+      { id: "job-field", title: "补一个网申常用字段", step: "选一个：实习时间、课程或技能", note: "给下一次填写留一块现成的拼图。", kind: "求职铺路", time: 5, energy: "mid" },
+      { id: "ai-check", title: "写下 AI 跑完后先检查什么", step: "用一句话写第一个验收点", note: "先决定回来后做什么，避免结果出来又重新启动。", kind: "工作收尾", time: 2, energy: "mid" },
+      { id: "meeting", title: "为下一场会议留一个问题", step: "打开会议材料，写一个想确认的点", note: "带着这个问题走进会议。", kind: "工作准备", time: 5, energy: "mid" },
+      { id: "desk", title: "清掉眼前一个小障碍", step: "关一个无关页面，或把一个文件归位", note: "让桌面重新露出一点空白。", kind: "环境", time: 2, energy: "low" },
+      { id: "walk", title: "离开座位走一小圈", step: "走到洗手间或窗边再回来", note: "让身体也拥有这一小段时间。", kind: "健康", time: 5, energy: "low" },
+      { id: "resume-rough", title: "粗写一条实习经历", step: "按“动作—对象—结果”写一行", note: "先留下粗稿，下一次再打磨。", kind: "求职", time: 10, energy: "high" },
+      { id: "apply-save", title: "收藏一个基本匹配的岗位", step: "看职责和地点，合适就收藏", note: "给下一次集中处理留下入口。", kind: "求职", time: 10, energy: "mid" },
+      { id: "work-log", title: "给今天的工作留三行记录", step: "写任务、你的动作、目前结果", note: "三行文字，收住今天的一段工作。", kind: "工作沉淀", time: 10, energy: "high" },
+      { id: "screen-reset", title: "让手机在远处待五分钟", step: "锁屏，放到手够不到的位置", note: "让目光回到身边的空间。", kind: "注意力恢复", time: 5, energy: "mid" }
+      ,{ id: "body-shoulders", title: "松开肩膀和下巴", step: "肩膀往下沉，慢慢转动脖子", note: "让紧绷从肩颈慢慢散开。", kind: "健康", time: 2, energy: "low" }
+      ,{ id: "body-eyes", title: "让眼睛离开屏幕", step: "看向远处一个固定物体二十秒", note: "这段空隙可以只用来恢复视觉注意力。", kind: "健康", time: 2, energy: "low" }
+      ,{ id: "capture-thought", title: "收下脑子里反复出现的一件事", step: "在备忘录写一句", note: "把它安放在文字里。", kind: "清空大脑", time: 2, energy: "low" }
+      ,{ id: "work-blocker", title: "记下当前工作的一个卡点", step: "写“我卡在___，下一步要确认___”", note: "给下次回来留一枚路标。", kind: "工作收尾", time: 2, energy: "mid" }
+      ,{ id: "meeting-link", title: "确认下一场会议的入口", step: "检查时间、链接和耳机", note: "确认完成，回到这张卡片。", kind: "工作准备", time: 2, energy: "low" }
+      ,{ id: "one-message", title: "回复一条真正需要回复的消息", step: "选最明确的一条，回复后回到这里", note: "让一段对话顺利往前走。", kind: "沟通", time: 5, energy: "mid" }
+      ,{ id: "file-name", title: "给一个工作文件起个能找到的名字", step: "改成“日期－内容－版本”", note: "只整理一个刚刚接触过的文件。", kind: "工作收尾", time: 2, energy: "low" }
+      ,{ id: "ai-result-place", title: "给 AI 的结果安排一个去处", step: "决定它应该进入文档、任务还是直接丢弃", note: "避免结果生成后散落在聊天窗口里。", kind: "工作收尾", time: 2, energy: "mid" }
+      ,{ id: "intern-verb", title: "为今天的工作找一个动作词", step: "从分析、搭建、协调、优化、验证中选一个", note: "以后写简历时，这个词能帮你重新找回事实。", kind: "简历素材", time: 2, energy: "mid" }
+      ,{ id: "intern-object", title: "补充一条工作的使用对象", step: "写清楚这项工作最终给谁使用", note: "用户、同事、商家或业务方，先写事实。", kind: "简历素材", time: 5, energy: "mid" }
+      ,{ id: "intern-evidence", title: "保存一条工作成果证据", step: "记下可核实的数量、反馈或前后变化", note: "数字、反馈和变化都能成为证据。", kind: "简历素材", time: 5, energy: "mid" }
+      ,{ id: "jd-word", title: "从一个岗位里摘出三个关键词", step: "阅读岗位职责，摘出三个词", note: "把关键词留给以后统一修改简历。", kind: "求职铺路", time: 5, energy: "mid" }
+      ,{ id: "job-reject-reason", title: "判断一个岗位为什么不适合", step: "选一个原因：地点、方向、要求或意愿", note: "排除一个选项，也获得了一条判断依据。", kind: "求职判断", time: 5, energy: "mid" }
+      ,{ id: "application-one-field", title: "填写一个网申信息字段", step: "填一个可以确定无误的字段", note: "让空白格少一个。", kind: "网申铺路", time: 5, energy: "mid" }
+      ,{ id: "interview-story", title: "记一个可用于面试的小片段", step: "写“发生了什么－我做了什么”两句话", note: "先留下故事的轮廓。", kind: "面试素材", time: 10, energy: "high" }
+      ,{ id: "resume-proof", title: "检查一条简历描述有没有证据", step: "圈出其中最需要证明的一个词", note: "找到这句话最薄弱的位置。", kind: "简历", time: 5, energy: "high" }
+      ,{ id: "job-next", title: "给一个求职任务写下下一步", step: "把“改简历”改成一个可以点击开始的动作", note: "例如：打开实习经历，补上使用对象。", kind: "求职启动", time: 5, energy: "mid" }
+      ,{ id: "screen-check", title: "看一眼今天的屏幕使用时间", step: "记下总时长和最久的应用", note: "收下一条关于今天的客观数据。", kind: "观察", time: 2, energy: "low" }
+      ,{ id: "food-next", title: "决定下一餐先吃什么", step: "选蛋白质或蔬菜中的一种", note: "把下一餐的第一个选择定下来。", kind: "健康", time: 2, energy: "low" }
+      ,{ id: "stairs-walk", title: "去走廊晃一圈", step: "慢慢走三到五分钟", note: "听听脚步声，也看看路过的光。", kind: "健康", time: 5, energy: "mid" }
+      ,{ id: "desk-food", title: "为下一次饥饿做一个小准备", step: "接水，或确认手边是否有合适的食物", note: "减少很饿时临时做决定的难度。", kind: "健康铺路", time: 5, energy: "low" }
+      ,{ id: "course-check", title: "确认一门课程最近的截止时间", step: "查看一个课程群或教学平台", note: "记下最近的一项截止时间。", kind: "学生", time: 5, energy: "low" }
+      ,{ id: "uncertain-line", title: "记录一次结果不确定的行动", step: "写可控产物和停止条件各一句", note: "把已经发生的行动留在纸面上。", kind: "心理实验", time: 5, energy: "mid" }
+      ,{ id: "kind-self", title: "把一句判断改成事实", step: "写下刚才具体发生了什么", note: "例如：刷了二十分钟，现在回到这里。", kind: "恢复", time: 2, energy: "low" }
+      ,{ id: "restart-marker", title: "给中断中的任务留下返回标记", step: "写“下次从___继续”", note: "返回标记比强迫自己现在做完更适合碎片时间。", kind: "恢复", time: 2, energy: "mid" }
+      ,{ id: "ten-minute-apply", title: "推进一份网申十分钟", step: "完成当前页面", note: "十分钟，为这份申请向前走一段。", kind: "求职", time: 10, energy: "high" }
+      ,{ id: "ai-summary", title: "把一段 AI 结果压成三行", step: "保留结论、依据和下一步", note: "值得保留的进入文档，其余内容标记为丢弃。", kind: "工作沉淀", time: 10, energy: "high" }
+      ,{ id: "jd-compare", title: "拿一条简历描述对照岗位要求", step: "判断：匹配、部分匹配或不匹配", note: "把判断留给下一次集中修改。", kind: "求职判断", time: 10, energy: "high" }
+      ,{ id: "meeting-recap", title: "给刚结束的会议留三行", step: "写结论、你的待办、等待谁", note: "只保存会影响下一步的信息。", kind: "工作沉淀", time: 5, energy: "mid" }
+      ,{ id: "permission-rest", title: "在忙碌之间小坐", step: "找个舒服的姿势，听听周围", note: "让时间从身边经过五分钟。", kind: "片刻", time: 5, energy: "low" }
+      ,{ id: "window-light", title: "看光落在哪里", step: "找一处明暗交界的地方", note: "等光影移动一点。", kind: "片刻", time: 2, energy: "low" }
+      ,{ id: "listen-room", title: "听听这一刻的声音", step: "闭上眼睛，分辨三种声音", note: "空调、脚步和远处的人声都在此刻经过。", kind: "片刻", time: 2, energy: "low" }
+      ,{ id: "weather-now", title: "看看今天的天色", step: "走到窗边，抬头看一会儿", note: "记住此刻天空的颜色。", kind: "片刻", time: 2, energy: "low" }
+      ,{ id: "one-song", title: "听完一首歌再回来", step: "选此刻最想听的一首", note: "把这几分钟交给旋律。", kind: "片刻", time: 5, energy: "low" }
+      ,{ id: "small-walk", title: "随便晃一圈再回来", step: "沿着走廊走到尽头", note: "看看途中遇见什么。", kind: "片刻", time: 5, energy: "low" }
+      ,{ id: "cloud-moment", title: "看云从楼间经过", step: "找一小片天空", note: "在下一件事开始前，看它走一程。", kind: "片刻", time: 5, energy: "low" }
+      ,{ id: "social-break", title: "主动和一个人聊几句", step: "选一个你确实想联系的人", note: "聊天可以是休息；区别只是这是你主动选择的。", kind: "休息", time: 10, energy: "mid" }
+    ];
+
+    const dayKey = () => new Date().toLocaleDateString("sv-SE");
+    const state = {
+      time: Number(localStorage.getItem("shixi-time") || 5),
+      current: null,
+      recent: [],
+      skipCount: 0,
+      accepted: false,
+      custom: JSON.parse(localStorage.getItem("shixi-custom") || "[]"),
+      history: JSON.parse(localStorage.getItem("shixi-history") || "{}")
+    };
+
+    const $ = id => document.getElementById(id);
+
+    function candidates() {
+      const all = [...defaults, ...state.custom];
+      const result = all.filter(t => t.time <= state.time);
+      return result.length ? result : all;
+    }
+
+    function choose(excludeCurrent = false) {
+      let list = candidates().filter(t => !state.recent.slice(-3).includes(t.id));
+      if (excludeCurrent && state.current) list = list.filter(t => t.id !== state.current.id);
+      if (!list.length) list = candidates();
+      if (state.skipCount >= 2) {
+        const rest = list.filter(t => ["休息", "恢复", "健康"].includes(t.kind));
+        if (rest.length) list = rest;
+      }
+      state.current = list[Math.floor(Math.random() * list.length)];
+      state.recent.push(state.current.id);
+      renderSuggestion();
+    }
+
+    function renderSuggestion() {
+      const t = state.current;
+      $("taskKind").textContent = t.kind;
+      $("taskTime").textContent = `约 ${t.time} 分钟`;
+      $("taskTitle").textContent = t.title;
+      $("taskNote").textContent = t.note || "先走完眼前这一小步。";
+      $("taskStep").textContent = t.step;
+      $("card").classList.remove("changed");
+      requestAnimationFrame(() => $("card").classList.add("changed"));
+      state.accepted = false;
+      $("accept").textContent = "就做这个";
+      $("accept").classList.remove("active");
+    }
+
+    $("another").addEventListener("click", () => {
+      state.skipCount += 1;
+      if (state.skipCount === 2) toast("下一张，换个轻松的");
+      choose(true);
+    });
+
+    $("accept").addEventListener("click", () => {
+      if (!state.accepted) {
+        state.accepted = true;
+        state.skipCount = 0;
+        $("accept").textContent = "做完了";
+        $("accept").classList.add("active");
+        toast("好，只做第一步");
+        return;
+      }
+      const key = dayKey();
+      state.history[key] ||= [];
+      state.history[key].push({ title: state.current.title, time: state.current.time, at: Date.now() });
+      localStorage.setItem("shixi-history", JSON.stringify(state.history));
+      updateToday();
+      toast("记下了。现在可以离开");
+      choose(true);
+    });
+
+    function updateToday() {
+      const items = state.history[dayKey()] || [];
+      $("doneCount").textContent = items.length;
+      $("menuTodayCount").textContent = `${items.length} 次`;
+      $("historyList").innerHTML = items.length ? [...items].reverse().map(x => `<div class="task-item"><b>${escapeHtml(x.title)}</b><small>${x.time} 分钟 · ${new Date(x.at).toLocaleTimeString("zh-CN", {hour:"2-digit", minute:"2-digit"})}</small></div>`).join("") : '<div class="task-item"><b>今天还没有记录</b><small>第一条会从这里出现。</small></div>';
+    }
+
+    function renderTaskList() {
+      const energyText = { low: "低精力", mid: "一般精力", high: "较高精力" };
+      const customHtml = state.custom.length
+        ? `<div class="label-row"><span class="label">你添加的</span><span class="hint">${state.custom.length} 项</span></div>${state.custom.map(x => `<div class="task-item"><b>${escapeHtml(x.title)}</b><small>${x.time} 分钟 · ${energyText[x.energy]}</small></div>`).join("")}`
+        : "";
+      const preparedHtml = `<div class="label-row" style="margin-top:${state.custom.length ? 22 : 0}px"><span class="label">为你准备的</span><span class="hint">${defaults.length} 项</span></div>${defaults.map(x => `<div class="task-item"><b>${escapeHtml(x.title)}</b><small>${escapeHtml(x.kind)} · ${x.time} 分钟 · ${energyText[x.energy]}</small></div>`).join("")}`;
+      $("taskList").innerHTML = customHtml + preparedHtml;
+    }
+
+    $("taskForm").addEventListener("submit", e => {
+      e.preventDefault();
+      state.custom.push({
+        id: `custom-${Date.now()}`,
+        title: $("newTitle").value.trim(),
+        step: $("newStep").value.trim(),
+        note: "先走完眼前这一小步。",
+        kind: "我的动作",
+        time: Number($("newTime").value),
+        energy: $("newEnergy").value
+      });
+      localStorage.setItem("shixi-custom", JSON.stringify(state.custom));
+      e.target.reset();
+      renderTaskList();
+      toast("已加入行动池");
+    });
+
+    function escapeHtml(text) { const d = document.createElement("div"); d.textContent = text; return d.innerHTML; }
+    let toastTimer;
+    function toast(message) { clearTimeout(toastTimer); $("toast").textContent = message; $("toast").classList.add("show"); toastTimer = setTimeout(() => $("toast").classList.remove("show"), 1800); }
+
+    $("openTime").addEventListener("click", () => $("timeDialog").showModal());
+    $("openMenu").addEventListener("click", () => $("menuDialog").showModal());
+    $("timeChoices").addEventListener("click", e => {
+      if (!e.target.dataset.time) return;
+      state.time = Number(e.target.dataset.time);
+      localStorage.setItem("shixi-time", state.time);
+      $("currentTime").textContent = state.time;
+      $("timeChoices").querySelectorAll("button").forEach(x => x.classList.toggle("active", Number(x.dataset.time) === state.time));
+      $("timeDialog").close();
+      choose(true);
+    });
+    $("menuTasks").addEventListener("click", () => { $("menuDialog").close(); renderTaskList(); $("taskDialog").showModal(); });
+    $("menuToday").addEventListener("click", () => { $("menuDialog").close(); updateToday(); $("todayDialog").showModal(); });
+    document.querySelectorAll("[data-close]").forEach(x => x.addEventListener("click", () => x.closest("dialog").close()));
+    document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => { if (e.target === d) d.close(); }));
+
+    $("exportJson").addEventListener("click", () => {
+      const exportedAt = new Date().toISOString();
+      const payload = {
+        format: "拾隙碎片时间记录",
+        version: 1,
+        exportedAt,
+        customTasks: state.custom,
+        dailyHistory: state.history
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `拾隙记录-${dayKey()}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      localStorage.setItem("shixi-last-export", exportedAt);
+      $("menuDialog").close();
+      toast("JSON 已导出到下载文件夹");
+    });
+
+    $("currentTime").textContent = state.time;
+    $("timeChoices").querySelectorAll("button").forEach(x => x.classList.toggle("active", Number(x.dataset.time) === state.time));
+    updateToday();
+    choose();
+  </script>
+</body>
+</html>
