@@ -183,6 +183,27 @@
       ,{ id: "social-break", title: "主动和一个人聊几句", step: "选一个你确实想联系的人", note: "聊天可以是休息；区别只是这是你主动选择的。", kind: "休息", time: 10, energy: "mid" }
     ];
 
+    const surprises = [
+      { id:"spark-frame", title:"给眼前这一幕取个片名", step:"抬头看一圈，写下六个字以内的片名", note:"这一小段时间，也可以有自己的镜头。", kind:"意外拾得", time:2, energy:"low", surprise:true },
+      { id:"spark-sound", title:"收集三种正在经过的声音", step:"停十秒，分辨近处、中间和远处", note:"不必记录，听见就算完成。", kind:"意外拾得", time:2, energy:"low", surprise:true },
+      { id:"spark-color", title:"找到今天没注意过的一种颜色", step:"环顾四周，选中一处颜色", note:"让目光从屏幕上岔开一会儿。", kind:"意外拾得", time:2, energy:"low", surprise:true },
+      { id:"spark-object", title:"替桌上一件东西写一句独白", step:"选离你最近的物件，想一句它会说的话", note:"认真或荒诞都可以。", kind:"意外拾得", time:2, energy:"low", surprise:true },
+      { id:"spark-window", title:"找一块正在移动的光", step:"看看窗边、墙面或地板", note:"等它发生一点变化再回来。", kind:"意外拾得", time:2, energy:"low", surprise:true },
+      { id:"spark-photo", title:"拍下一件今天才会出现的东西", step:"只拍一张，不修图，也不发布", note:"工位、天气和路过的影子都可以。", kind:"意外拾得", time:2, energy:"low", surprise:true },
+      { id:"spark-line", title:"写一句没有用途的话", step:"打开备忘录，写下脑中首先出现的一句", note:"它不需要成为作品。", kind:"意外拾得", time:2, energy:"low", surprise:true },
+      { id:"spark-map", title:"换一条路线走回原处", step:"绕过一个拐角，再回到这里", note:"给熟悉的地方开一条小支线。", kind:"意外拾得", time:5, energy:"low", surprise:true },
+      { id:"spark-cloud", title:"找一小片天空", step:"看它像什么，不必得到答案", note:"如果没有窗，就找一张远景照片。", kind:"意外拾得", time:5, energy:"low", surprise:true },
+      { id:"spark-treasure", title:"在附近发现一件小宝物", step:"找一个好看的纹理、形状或反光", note:"只需要发现，不需要拥有。", kind:"意外拾得", time:5, energy:"low", surprise:true },
+      { id:"spark-postcard", title:"给此刻写一张迷你明信片", step:"写“我在___，刚刚___”", note:"两小句就能寄给未来的自己。", kind:"意外拾得", time:5, energy:"mid", surprise:true },
+      { id:"spark-character", title:"猜一个路人的隐藏身份", step:"只根据一件无关紧要的小细节编故事", note:"不评价对方，只进行十秒钟的虚构。", kind:"意外拾得", time:5, energy:"mid", surprise:true },
+      { id:"spark-song", title:"为此刻挑一首背景音乐", step:"选一首歌，只听到副歌", note:"听完副歌就回来，不继续刷推荐。", kind:"意外拾得", time:5, energy:"low", surprise:true },
+      { id:"spark-sixwords", title:"用六个字写下今天", step:"删到只剩六个字", note:"可以完整，也可以像一段残句。", kind:"意外拾得", time:5, energy:"mid", surprise:true },
+      { id:"spark-future", title:"给今晚的自己留一条暗号", step:"写一句只有今天的你看得懂的话", note:"晚上遇见它时，再决定要不要解释。", kind:"意外拾得", time:5, energy:"mid", surprise:true },
+      { id:"spark-doodle", title:"画一个只活五分钟的小东西", step:"画下第一条线，不用橡皮", note:"画完可以保存，也可以丢掉。", kind:"意外拾得", time:10, energy:"mid", surprise:true },
+      { id:"spark-list", title:"列一张奇怪的三件套", step:"写下此刻最想要的三样东西", note:"它们不必合理，也不必能够买到。", kind:"意外拾得", time:10, energy:"mid", surprise:true },
+      { id:"spark-scene", title:"把附近改写成小说开头", step:"用“那天”开头写两句话", note:"写到第二句就停。", kind:"意外拾得", time:10, energy:"mid", surprise:true }
+    ];
+
     const dayKey = () => new Date().toLocaleDateString("sv-SE");
     const state = {
       time: Number(localStorage.getItem("shixi-time") || 5),
@@ -197,7 +218,7 @@
     const $ = id => document.getElementById(id);
 
     function candidates() {
-      const all = [...defaults, ...state.custom];
+      const all = [...defaults, ...surprises, ...state.custom];
       const result = all.filter(t => t.time <= state.time);
       return result.length ? result : all;
     }
@@ -209,6 +230,11 @@
       if (state.skipCount >= 2) {
         const rest = list.filter(t => ["休息", "恢复", "健康"].includes(t.kind));
         if (rest.length) list = rest;
+      } else {
+        const surprisePool = list.filter(t => t.surprise);
+        const regularPool = list.filter(t => !t.surprise);
+        if (surprisePool.length && Math.random() < .24) list = surprisePool;
+        else if (regularPool.length) list = regularPool;
       }
       state.current = list[Math.floor(Math.random() * list.length)];
       state.recent.push(state.current.id);
@@ -241,7 +267,7 @@
         state.skipCount = 0;
         $("accept").textContent = "做完了";
         $("accept").classList.add("active");
-        toast("好，只做第一步");
+        toast(state.current.surprise ? "一枚小彩蛋，只玩这一小步" : "好，只做第一步");
         return;
       }
       const key = dayKey();
@@ -334,3 +360,4 @@
   </script>
 </body>
 </html>
+
